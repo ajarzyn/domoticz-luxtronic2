@@ -120,17 +120,17 @@ _IDS = {
     'HM': [
         'Heating mode',
         'Obieg grzewczy',
-        '[de]Heating mode'
+        'Heizen'
     ],
     'HWM': [
         'Hot water mode',
         'Woda użytkowa',
-        '[de]Hot water mode'
+        'Warmwasser'
     ],
     'CM': [
         'Cooling',
         'Chłodzenie',
-        '[de]Cooling'
+        'Kühlbetrieb'
     ],
     'OTC': [
         'Operating time',
@@ -162,9 +162,71 @@ _IDS = {
         'Automat.|2nd h. source|Party|Holidays|Off',
         'Automat.|II źr. ciepła|Party|Wakacje|Wył.',
         '[de]Automat.|2nd h. source|Party|Holidays|Off',
-    ]
+    ],
+    'OFF': [
+        'No requirement',
+        'Brak zapotrzebowania',
+        'Keine Anforderung',
+    ],
+    'WM': [
+        'Working mode',
+        'Stan pracy',
+        '[de]Working mode'
+    ],
+    'SPM': [
+        'Swimming pool mode / Photovaltaik',
+        'Tryb basen / Fotowoltaika',
+        'Schwimmbad / Photovoltaik'
+        ],
+    'EVUM': [
+        'EVU',
+        'EVU',
+        'EVU'
+        ],
+    'DFM': [
+        'Defrost',
+        'Rozmrażanie',
+        'Abtauen'
+        ],
+    'HES': [
+        'Heating external source mode',
+        'Ogrzewanie z zewnętrznego źródła',
+        'Heizen ext. Energiequelle'
+        ]
 }
 
+
+def to_float(data: int, divider: float) -> dict:
+    converted = float(data / divider)
+    return {'s_value': str(converted)}
+
+
+def to_switch(data: int, divider: float = 1.0) -> dict:
+    converted = float(data / divider)
+    return {'n_value': int(converted)}
+
+
+def to_selector_switch(data: int, divider: float = 1.0) -> dict:
+    converted = float(data/divider)
+    return {'n_value': int(converted), 's_value': str(converted)}
+
+
+def mode_to_alert(data: int) -> dict:
+    conversion_table = {
+        -1: [0, 'UNKNOWN'],
+        0: [3, IDS('HM')],  # Heating
+        1: [4, IDS('HWM')],
+        2: [2, IDS('SPM')],
+        3: [2, IDS('EVUM')],
+        4: [1, IDS('DFM')],
+        5: [0, IDS('OFF')],
+        6: [4, IDS('HES')],
+        7: [1, IDS('CM')]
+    }
+    if data not in conversion_table.keys():
+        Domoticz.Error(f"Unknown work mode {str(data)}")
+        data = -1
+    return {'n_value': conversion_table[data][0], 's_value': conversion_table[data][1]}
 
 def IDS(text):
     return _IDS[text][int(Parameters["Mode3"])]
@@ -178,49 +240,45 @@ class BasePlugin:
         for command in SOCKET_COMMANDS.keys():
             self.DEV_LISTS[command] = {}
 
-    tmp ={
-
-
-    }
-
-
     def PrepareDevicesList(self):
         self.dev_list = [
-            # Name, socket command, idx, divider factor, Domoticz devices options
-            ['READ_CALCUL', 10,  10, dict(TypeName="Temperature", Used=1), IDS('HST')],
-            ['READ_CALCUL', 11,  10, dict(TypeName="Temperature", Used=1), IDS('HRT')],
-            ['READ_CALCUL', 12,  10, dict(TypeName="Temperature", Used=1), IDS('HRTT')],
-            ['READ_CALCUL', 15,  10, dict(TypeName="Temperature", Used=1), IDS('OT')],
-            ['READ_CALCUL', 16,  10, dict(TypeName="Temperature", Used=1), IDS('OTA')],
-            ['READ_CALCUL', 17,  10, dict(TypeName="Temperature", Used=1), IDS('HWT')],
-            ['READ_CALCUL', 18,  10, dict(TypeName="Temperature", Used=1), IDS('HWTT')],
-            ['READ_CALCUL', 19,  10, dict(TypeName="Temperature", Used=1), IDS('GSTI')],
-            ['READ_CALCUL', 20,  10, dict(TypeName="Temperature", Used=1), IDS('GSTO')],
-            ['READ_CALCUL', 21,  10, dict(TypeName="Temperature", Used=1), IDS('OM1T')],
-            ['READ_CALCUL', 22,  10, dict(TypeName="Temperature", Used=1), IDS('OM1TT')],
+            # Name, socket command, idx, data modification callback, Domoticz devices options, is writable
+            ['READ_CALCUL', 10,  (to_float, [10]), dict(TypeName="Temperature", Used=1), IDS('HST')],
+            ['READ_CALCUL', 11,  (to_float, [10]), dict(TypeName="Temperature", Used=1), IDS('HRT')],
+            ['READ_CALCUL', 12,  (to_float, [10]), dict(TypeName="Temperature", Used=1), IDS('HRTT')],
+            ['READ_CALCUL', 15,  (to_float, [10]), dict(TypeName="Temperature", Used=1), IDS('OT')],
+            ['READ_CALCUL', 16,  (to_float, [10]), dict(TypeName="Temperature", Used=1), IDS('OTA')],
+            ['READ_CALCUL', 17,  (to_float, [10]), dict(TypeName="Temperature", Used=1), IDS('HWT')],
+            ['READ_CALCUL', 18,  (to_float, [10]), dict(TypeName="Temperature", Used=1), IDS('HWTT')],
+            ['READ_CALCUL', 19,  (to_float, [10]), dict(TypeName="Temperature", Used=1), IDS('GSTI')],
+            ['READ_CALCUL', 20,  (to_float, [10]), dict(TypeName="Temperature", Used=1), IDS('GSTO')],
+            ['READ_CALCUL', 21,  (to_float, [10]), dict(TypeName="Temperature", Used=1), IDS('OM1T')],
+            ['READ_CALCUL', 22,  (to_float, [10]), dict(TypeName="Temperature", Used=1), IDS('OM1TT')],
 
             # ['READ_CALCUL', 56, "time", dict(), IDS('OTC')],
             # ['READ_CALCUL', 57, 1, dict(TypeName="Temperature", Used=1), IDS('CYC')],
             # ['READ_CALCUL', 22, 10, dict(TypeName="Temperature", Used=1), IDS('')],
             # ['READ_CALCUL', 22, 10, dict(TypeName="Temperature", Used=1), IDS('')],
-            ['READ_CALCUL', 151, 10, dict(TypeName="kWh", Used=1), IDS('EPH')],
-            ['READ_CALCUL', 152, 10, dict(TypeName="kWh", Used=1), IDS('EPHW')],
-            ['READ_CALCUL', 154, 10, dict(TypeName="kWh", Used=1), IDS('EPS')],
+            ['READ_CALCUL', 151, (to_float, [10]), dict(TypeName="kWh", Used=1), IDS('EPH')],
+            ['READ_CALCUL', 152, (to_float, [10]), dict(TypeName="kWh", Used=1), IDS('EPHW')],
+            ['READ_CALCUL', 154, (to_float, [10]), dict(TypeName="kWh", Used=1), IDS('EPS')],
 
 
 
             # Writables
-            ['READ_PARAMS', 3,   1/10, dict(TypeName="Selector Switch", Image=7, Used=1,
+            ['READ_PARAMS', 3, (to_selector_switch, [1/10]), dict(TypeName="Selector Switch", Image=7, Used=1,
                                  Options={"LevelActions": "|||||",
                                           "LevelNames": IDS('HWM_OPTIONS'),
                                           "LevelOffHidden": "false",
                                           "SelectorStyle": "1"}), IDS('HM'), 'WRIT_PARAMS'],
-            ['READ_PARAMS', 4,   1/10, dict(TypeName="Selector Switch", Image=7, Used=1,
+            ['READ_PARAMS', 4, (to_selector_switch, [1/10]), dict(TypeName="Selector Switch", Image=7, Used=1,
                                  Options={"LevelActions": "|||||",
                                           "LevelNames": IDS('HWM_OPTIONS'),
                                           "LevelOffHidden": "false",
                                           "SelectorStyle": "1"}), IDS('HWM'), 'WRIT_PARAMS'],
-            ['READ_PARAMS', 108, "Switch", dict(TypeName="Switch", Image=9, Used=1), IDS('CM'), 'WRIT_PARAMS'],
+            ['READ_PARAMS', 108, (to_switch, []), dict(TypeName="Switch", Image=9, Used=1), IDS('CM'), 'WRIT_PARAMS'],
+
+            ['READ_CALCUL', 80, (mode_to_alert, []), dict(TypeName="Alert", Image=15, Used=1), IDS('WM')],
         ]
 
         class Unit:
@@ -228,20 +286,17 @@ class BasePlugin:
                 self.id = id
                 self.message = message
                 self.address = address
-                self.div_fact = div_fact
+                self.data_callback = div_fact[0]
+                self.div_fact = div_fact[1]
                 self.dev_params = dev_params
                 self.name = name
                 self.writ_message = writ_message
 
             def updateDomoticzDev(self, data_list):
-                if self.div_fact == 10:
-                    update_device(unit=self.id, s_value=str(float(data_list[self.address]/self.div_fact)))
-                elif self.div_fact == 'Switch':
-                    update_device(unit=self.id, n_value=data_list[self.address])
+                update_device(unit=self.id, **self.data_callback(data_list[self.address], *self.div_fact))
 
             def prepareDataToSend(self, data):
                 return (self.writ_message, self.address, data)
-
 
 
         for dev_idx in range(len(self.dev_list)):
@@ -320,10 +375,10 @@ class BasePlugin:
         return raw_data
 
     def Update(self, message):
-        data = self.ProcessSocketMessage(message)
-        if data[2] > 0:
+        command, stat, data_length, data_list = self.ProcessSocketMessage(message)
+        if data_length > 0:
             for device in self.DEV_LISTS[message].values():
-                device.updateDomoticzDev(data[3])
+                device.updateDomoticzDev(data_list)
 
     def UpdateAll(self):
         self.Update('READ_CALCUL')
