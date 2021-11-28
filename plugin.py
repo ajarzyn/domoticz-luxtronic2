@@ -259,9 +259,9 @@ class BasePlugin:
             # ['READ_CALCUL', 57, 1, dict(TypeName="Temperature", Used=1), IDS('CYC')],
             # ['READ_CALCUL', 22, 10, dict(TypeName="Temperature", Used=1), IDS('')],
             # ['READ_CALCUL', 22, 10, dict(TypeName="Temperature", Used=1), IDS('')],
-            ['READ_CALCUL', 151, (to_float, [10]), dict(TypeName="Counter Incremental", Used=1), IDS('EPH')],
-            ['READ_CALCUL', 152, (to_float, [10]), dict(TypeName="Counter Incremental", Used=1), IDS('EPHW')],
-            ['READ_CALCUL', 154, (to_float, [10]), dict(TypeName="Counter Incremental", Used=1), IDS('EPS')],
+            ['READ_CALCUL', 151, (to_float, [10]), dict(TypeName="kWh", Used=1), IDS('EPH')],
+            ['READ_CALCUL', 152, (to_float, [10]), dict(TypeName="kWh", Used=1), IDS('EPHW')],
+            ['READ_CALCUL', 154, (to_float, [10]), dict(TypeName="kWh", Used=1), IDS('EPS')],
 
 
 
