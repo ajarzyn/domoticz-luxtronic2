@@ -65,72 +65,72 @@ _IDS = {
     "HST": [
         'Heating supply temperature',
         'Temperatura zasilania',
-        'Temperatuur voorloop'
+        'Temperatuur aanvoer'
     ],
     "HRT": [
         'Heating return temperature',
         'Temperatura powrótu',
-        'Temperatuur naloop',
+        'Temperatuur retour',
     ],
     "HRTT": [
         'Heating return temperature - target',
         'Temperatura powrótu - cel',
-        'Terugloop Doel'
+        'Retour berekend'
     ],
     'OT': [
         'Outside temperature',
         'Temperatura zewnętrzna',
-        'Temperatuur buiten'
+        'Buitentemperatuur'
     ],
     'OTA': [
         'Outside temperature - average',
         'Temperatura zewnętrzna - średnia',
-        '[de]Outside temperature - average'
+        'Buitentemperatuur - gemiddeld'
     ],
     'HWT': [
         'Hot water temperature',
         'Temperatura cwu',
-        '[de]Hot water temperature'
+        'Tapwater gemeten'
     ],
     'HWTT': [
         'Hot water temperature - target',
         'Temperatura cwu - cel',
-        '[de]Hot water temperature - target'
+        'Tapwater ingesteld'
     ],
     'GSTI': [
         'Ground source temperature - in',
         'Temperatura dolne źródło-wejście',
-        'WQ ingangs temp'
+        'Bron-in'
     ],
     'GSTO': [
         'Ground source temperature - out',
         'Temperatura dolne źródło-wyjście',
-        'WA uitgang temp'
+        'Bron-uit'
     ],
     'OM1T': [
         'OM 1 Temperature',
         'Temperatura zasilanie OM 1',
-        '[de]OM 1 Temperature'
+        'Menggroep1 aanvoer'
     ],
     'OM1TT': [
         'OM 1 Temperature - target',
         'Temperatura zasilanie OM 1 - cel',
-        '[de]OM 1 Temperature - target'
+        'Menggroep1 aanvoer ingesteld'
     ],
     'HM': [
         'Heating mode',
         'Obieg grzewczy',
-        'Heizen'
+        'Verwarmingsbedrijf'
     ],
     'HWM': [
         'Hot water mode',
         'Woda użytkowa',
-        'Warmwasser'
+        'Warmwater'
     ],
     'CM': [
         'Cooling',
         'Chłodzenie',
-        'Kühlbetrieb'
+        'Koelbedrijf'
     ],
     'OTC': [
         'Operating time',
@@ -146,37 +146,37 @@ _IDS = {
     'EPH': [
         'Energy produced - heating',
         'Energia wyprodukowana - ogrzewanie',
-        'Verbruik verwaming'
+        'Verbruik verwarmen'
     ],
     'EPHW': [
         'Energy produced - hot water',
         'Energia wyprodukowana - c.w.u',
-        'Verbruik heet water'
+        'Verbruik warmwater'
     ],
     'EPS': [
         'Energy produced - sum',
         'Energia wyprodukowana - Razem',
-        '[de]Verbruik sum'
+        'Verbruik gezamelijk'
     ],
     'HWM_OPTIONS': [
         'Automat.|2nd h. source|Party|Holidays|Off',
         'Automat.|II źr. ciepła|Party|Wakacje|Wył.',
-        '[de]Automat.|2nd h. source|Party|Holidays|Off',
+        'Automatisch|2e warm.opwek|Party|Vakantie|Uit',
     ],
     'OFF': [
         'No requirement',
         'Brak zapotrzebowania',
-        'Keine Anforderung',
+        'Geen vraag',
     ],
     'WM': [
         'Working mode',
         'Stan pracy',
-        '[de]Working mode'
+        'Bedrijfsmode'
     ],
     'SPM': [
         'Swimming pool mode / Photovaltaik',
         'Tryb basen / Fotowoltaika',
-        'Schwimmbad / Photovoltaik'
+        'Zwembad / Fotovoltaïek'
         ],
     'EVUM': [
         'EVU',
@@ -186,12 +186,12 @@ _IDS = {
     'DFM': [
         'Defrost',
         'Rozmrażanie',
-        'Abtauen'
+        'Ontdooien'
         ],
     'HES': [
         'Heating external source mode',
         'Ogrzewanie z zewnętrznego źródła',
-        'Heizen ext. Energiequelle'
+        'Verwarmen 2e warm.opwek'
         ]
 }
 
