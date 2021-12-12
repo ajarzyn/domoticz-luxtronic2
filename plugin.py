@@ -1,7 +1,7 @@
 # Luxtronic2 plugin based on sockets
 # Author: ajarzyna, 2021
 """
-<plugin key="LUXT2" name="Luxtronic2 based on sockets." author="ajarzyn" version="0.0.1">
+<plugin key="LUXT2" name="Luxtronic2 based on sockets." author="ajarzyn" version="0.0.2">
     <description>
         <h2>Luxtronic2 based on sockets.</h2><br/>
         Be aware:
@@ -40,20 +40,180 @@ import Domoticz
 import socket
 import struct
 
-SOCKET_COMMANDS = {
-    'WRIT_PARAMS': 3002,
-    'READ_PARAMS': 3003,
-    'READ_CALCUL': 3004,
-    'READ_VISIBI': 3005
+
+_IDS = {
+    'Heating supply temperature': [
+        'Temperatura zasilania',
+        'Temperatuur aanvoer'
+    ],
+    'Heating return temperature': [
+        'Temperatura powrótu',
+        'Temperatuur retour',
+    ],
+    'Heating return temperature - target': [
+        'Temperatura powrótu - cel',
+        'Retour berekend'
+    ],
+    'Outside temperature': [
+        'Temperatura zewnętrzna',
+        'Buitentemperatuur'
+    ],
+    'Outside temperature - average': [
+        'Temperatura zewnętrzna - średnia',
+        'Buitentemperatuur - gemiddeld'
+    ],
+    'Hot water temperature': [
+        'Temperatura cwu',
+        'Tapwater gemeten'
+    ],
+    'Hot water temperature - target': [
+        'Temperatura cwu - cel',
+        'Tapwater ingesteld'
+    ],
+    'Ground source temperature - in': [
+        'Temperatura dolne źródło-wejście',
+        'Bron-in'
+    ],
+    'Ground source temperature - out': [
+        'Temperatura dolne źródło-wyjście',
+        'Bron-uit'
+    ],
+    'OM 1 Temperature': [
+        'Temperatura zasilanie OM 1',
+        'Menggroep1 aanvoer'
+    ],
+    'OM 1 Temperature - target': [
+        'Temperatura zasilanie OM 1 - cel',
+        'Menggroep1 aanvoer ingesteld'
+    ],
+    'Heating mode': [
+        'Obieg grzewczy',
+        'Verwarmingsbedrijf'
+    ],
+    'Hot water mode': [
+        'Woda użytkowa',
+        'Warmwater'
+    ],
+    'Cooling': [
+        'Chłodzenie',
+        'Koelbedrijf'
+    ],
+    'Operating time': [
+        'Czas pracy',
+        'Bedrijfstijd Verdichter 1'
+    ],
+    'Cycles': [
+        'Cykli',
+        'Impuls VD1'
+    ],
+    'Energy produced - heating': [
+        'Energia wyprodukowana - ogrzewanie',
+        'Verbruik verwarmen'
+    ],
+    'Energy produced - hot water': [
+        'Energia wyprodukowana - c.w.u',
+        'Verbruik warmwater'
+    ],
+    'Energy produced - sum': [
+        'Energia wyprodukowana - Razem',
+        'Verbruik gezamelijk'
+    ],
+    'Automat.|2nd h. source|Party|Holidays|Off': [
+        'Automat.|II źr. ciepła|Party|Wakacje|Wył.',
+        'Automatisch|2e warm.opwek|Party|Vakantie|Uit',
+    ],
+    'No requirement': [
+        'Brak zapotrzebowania',
+        'Geen vraag',
+    ],
+    'Working mode': [
+        'Stan pracy',
+        'Bedrijfsmode'
+    ],
+    'Swimming pool mode / Photovaltaik': [
+        'Tryb basen / Fotowoltaika',
+        'Zwembad / Fotovoltaïek'
+        ],
+    'EVUM': [
+        'EVU',
+        'EVU'
+        ],
+    'Defrost': [
+        'Rozmrażanie',
+        'Ontdooien'
+        ],
+    'Heating external source mode': [
+        'Ogrzewanie z zewnętrznego źródła',
+        'Verwarmen 2e warm.opwek'
+        ],
+    'Flow': [
+        'Przepływ',
+        'Debiet'
+    ],
+    'Compressor frequency': [
+        'Częstotliwość sprężarki',
+        'Freq. '
+    ],
+    'Temperature +-': [
+        'Temperatura +-',
+        '[DE]Temperature +-. '
+    ],
 }
 
-class Field:
-    def __init__(self):
-        self.__int__('Unknown', [])
 
-    def __init__(self, name, values):
-        self.name = name
-        self.vales = values
+# Read callbacks
+def to_float(data_list: list, data_idx: int, divider: float) -> dict:
+    converted = float(data_list[data_idx] / divider)
+    return {'sValue': str(converted)}
+
+
+def to_number(data_list: list, data_idx: int, divider: float = 1.0) -> dict:
+    converted = float(data_list[data_idx] / divider)
+    return {'nValue': int(converted)}
+
+
+def selector_switch_level_mapping(data_list: list, data_idx: int, mapping: list) -> dict:
+    level = mapping.index(data_list[data_idx]) * 10
+    return {'nValue': int(level), 'sValue': str(level)}
+
+
+def to_power_counter(data_list: list, cumulative_power_data_idx: int, additional_data_list: list) -> dict:
+    power_sum_div, power_curr_data_idx, power_curr_div, state_curr_data_idx, acceptable_state = additional_data_list
+    sum_of_power = str(float(data_list[cumulative_power_data_idx] / power_sum_div))
+    if int(data_list[state_curr_data_idx]) in acceptable_state:
+        current_power = str(float(data_list[power_curr_data_idx] / power_curr_div))
+        return {'sValue': f"{current_power};{sum_of_power}"}
+    else:
+        return {'sValue': f"0;{sum_of_power}"}
+
+
+def to_alert(data_list: list, data_idx: int, mapping: list) -> dict:
+    Domoticz.Debug(str(data_list[data_idx]) + " " + str(mapping))
+    return {'nValue': int(mapping[data_list[data_idx]][0]), 'sValue': str(mapping[data_list[data_idx]][1])}
+
+
+# Write callbacks
+def command_to_number(*_args, Command: str, **_kwargs):
+    return 1 if Command == 'On' else 0
+
+
+def available_writes_level_with_divider(write_data_list: list, *_args,
+                                        available_writes, Level, **_kwargs):
+    divider, available_writes_idx = write_data_list
+    return available_writes[available_writes_idx].get_val()[int(Level / divider)]
+
+
+def ids(text):
+    return _IDS[text][int(Parameters["Mode3"])-1] if int(Parameters["Mode3"]) else text
+
+
+class Field:
+    def __init__(self, *args, **kwargs):
+        if len(args) == len(kwargs) == 0:
+            self.name = 'Unknown'
+            self.vales = []
+        else:
+            self.name, self.vales = args
 
     def get_name(self):
         return self.name
@@ -61,264 +221,206 @@ class Field:
     def get_val(self):
         return self.vales
 
-_IDS = {
-    "HST": [
-        'Heating supply temperature',
-        'Temperatura zasilania',
-        'Temperatuur aanvoer'
-    ],
-    "HRT": [
-        'Heating return temperature',
-        'Temperatura powrótu',
-        'Temperatuur retour',
-    ],
-    "HRTT": [
-        'Heating return temperature - target',
-        'Temperatura powrótu - cel',
-        'Retour berekend'
-    ],
-    'OT': [
-        'Outside temperature',
-        'Temperatura zewnętrzna',
-        'Buitentemperatuur'
-    ],
-    'OTA': [
-        'Outside temperature - average',
-        'Temperatura zewnętrzna - średnia',
-        'Buitentemperatuur - gemiddeld'
-    ],
-    'HWT': [
-        'Hot water temperature',
-        'Temperatura cwu',
-        'Tapwater gemeten'
-    ],
-    'HWTT': [
-        'Hot water temperature - target',
-        'Temperatura cwu - cel',
-        'Tapwater ingesteld'
-    ],
-    'GSTI': [
-        'Ground source temperature - in',
-        'Temperatura dolne źródło-wejście',
-        'Bron-in'
-    ],
-    'GSTO': [
-        'Ground source temperature - out',
-        'Temperatura dolne źródło-wyjście',
-        'Bron-uit'
-    ],
-    'OM1T': [
-        'OM 1 Temperature',
-        'Temperatura zasilanie OM 1',
-        'Menggroep1 aanvoer'
-    ],
-    'OM1TT': [
-        'OM 1 Temperature - target',
-        'Temperatura zasilanie OM 1 - cel',
-        'Menggroep1 aanvoer ingesteld'
-    ],
-    'HM': [
-        'Heating mode',
-        'Obieg grzewczy',
-        'Verwarmingsbedrijf'
-    ],
-    'HWM': [
-        'Hot water mode',
-        'Woda użytkowa',
-        'Warmwater'
-    ],
-    'CM': [
-        'Cooling',
-        'Chłodzenie',
-        'Koelbedrijf'
-    ],
-    'OTC': [
-        'Operating time',
-        'Czas pracy',
-        'Bedrijfstijd Verdichter 1'
-    ],
-    'CYC': [
-        'Cycles',
-        'Cykli',
-        'Impuls VD1'
-    ],
 
-    'EPH': [
-        'Energy produced - heating',
-        'Energia wyprodukowana - ogrzewanie',
-        'Verbruik verwarmen'
-    ],
-    'EPHW': [
-        'Energy produced - hot water',
-        'Energia wyprodukowana - c.w.u',
-        'Verbruik warmwater'
-    ],
-    'EPS': [
-        'Energy produced - sum',
-        'Energia wyprodukowana - Razem',
-        'Verbruik gezamelijk'
-    ],
-    'HWM_OPTIONS': [
-        'Automat.|2nd h. source|Party|Holidays|Off',
-        'Automat.|II źr. ciepła|Party|Wakacje|Wył.',
-        'Automatisch|2e warm.opwek|Party|Vakantie|Uit',
-    ],
-    'OFF': [
-        'No requirement',
-        'Brak zapotrzebowania',
-        'Geen vraag',
-    ],
-    'WM': [
-        'Working mode',
-        'Stan pracy',
-        'Bedrijfsmode'
-    ],
-    'SPM': [
-        'Swimming pool mode / Photovaltaik',
-        'Tryb basen / Fotowoltaika',
-        'Zwembad / Fotovoltaïek'
-        ],
-    'EVUM': [
-        'EVU',
-        'EVU',
-        'EVU'
-        ],
-    'DFM': [
-        'Defrost',
-        'Rozmrażanie',
-        'Ontdooien'
-        ],
-    'HES': [
-        'Heating external source mode',
-        'Ogrzewanie z zewnętrznego źródła',
-        'Verwarmen 2e warm.opwek'
-        ]
+SOCKET_COMMANDS = {
+    'WRIT_PARAMS': 3002,
+    'READ_PARAMS': 3003,
+    'READ_CALCUL': 3004,
+    'READ_VISIBI': 3005
 }
 
-
-def to_float(data: int, divider: float) -> dict:
-    converted = float(data / divider)
-    return {'s_value': str(converted)}
-
-
-def to_switch(data: int, divider: float = 1.0) -> dict:
-    converted = float(data / divider)
-    return {'n_value': int(converted)}
-
-
-def to_selector_switch(data: int, divider: float = 1.0) -> dict:
-    converted = float(data/divider)
-    return {'n_value': int(converted), 's_value': str(converted)}
-
-
-def mode_to_alert(data: int) -> dict:
-    conversion_table = {
-        -1: [0, 'UNKNOWN'],
-        0: [3, IDS('HM')],  # Heating
-        1: [4, IDS('HWM')],
-        2: [2, IDS('SPM')],
-        3: [2, IDS('EVUM')],
-        4: [1, IDS('DFM')],
-        5: [0, IDS('OFF')],
-        6: [4, IDS('HES')],
-        7: [1, IDS('CM')]
-    }
-    if data not in conversion_table.keys():
-        Domoticz.Error(f"Unknown work mode {str(data)}")
-        data = -1
-    return {'n_value': conversion_table[data][0], 's_value': conversion_table[data][1]}
-
-def IDS(text):
-    return _IDS[text][int(Parameters["Mode3"])]
 
 class BasePlugin:
     def __init__(self):
         self.active_connection = None
-        self.UNITS = {}
+        self.name = None
+        self.host = None
+        self.port = None
 
-        self.DEV_LISTS = {}
+        self.devices_parameters_list = []
+
+        self.units = {}
+        self.available_writes = {}
+        self.dev_lists = {}
         for command in SOCKET_COMMANDS.keys():
-            self.DEV_LISTS[command] = {}
+            self.dev_lists[command] = {}
 
-    def PrepareDevicesList(self):
-        self.dev_list = [
-            # Name, socket command, idx, data modification callback, Domoticz devices options, is writable
-            ['READ_CALCUL', 10,  (to_float, [10]), dict(TypeName="Temperature", Used=1), IDS('HST')],
-            ['READ_CALCUL', 11,  (to_float, [10]), dict(TypeName="Temperature", Used=1), IDS('HRT')],
-            ['READ_CALCUL', 12,  (to_float, [10]), dict(TypeName="Temperature", Used=1), IDS('HRTT')],
-            ['READ_CALCUL', 15,  (to_float, [10]), dict(TypeName="Temperature", Used=1), IDS('OT')],
-            ['READ_CALCUL', 16,  (to_float, [10]), dict(TypeName="Temperature", Used=1), IDS('OTA')],
-            ['READ_CALCUL', 17,  (to_float, [10]), dict(TypeName="Temperature", Used=1), IDS('HWT')],
-            ['READ_CALCUL', 18,  (to_float, [10]), dict(TypeName="Temperature", Used=1), IDS('HWTT')],
-            ['READ_CALCUL', 19,  (to_float, [10]), dict(TypeName="Temperature", Used=1), IDS('GSTI')],
-            ['READ_CALCUL', 20,  (to_float, [10]), dict(TypeName="Temperature", Used=1), IDS('GSTO')],
-            ['READ_CALCUL', 21,  (to_float, [10]), dict(TypeName="Temperature", Used=1), IDS('OM1T')],
-            ['READ_CALCUL', 22,  (to_float, [10]), dict(TypeName="Temperature", Used=1), IDS('OM1TT')],
+    def prepare_devices_list(self):
+        self.available_writes = {
+            -1: Field(),
+            1: Field(ids('Temperature +-'), [a for a in range(-50, 51, 5)]),
+            3: Field(ids('Heating mode'), [0, 1, 2, 3, 4]),
+            4: Field(ids('Hot water mode'), [0, 1, 2, 3, 4]),
+            105: Field(ids('Hot water temperature - target'), [a for a in range(300, 651, 5)]),
+            108: Field(ids('Cooling'), [0, 1])
+        }
 
-            # ['READ_CALCUL', 56, "time", dict(), IDS('OTC')],
-            # ['READ_CALCUL', 57, 1, dict(TypeName="Temperature", Used=1), IDS('CYC')],
-            # ['READ_CALCUL', 22, 10, dict(TypeName="Temperature", Used=1), IDS('')],
-            # ['READ_CALCUL', 22, 10, dict(TypeName="Temperature", Used=1), IDS('')],
-            ['READ_CALCUL', 151, (to_float, [10]), dict(TypeName="kWh", Used=1), IDS('EPH')],
-            ['READ_CALCUL', 152, (to_float, [10]), dict(TypeName="kWh", Used=1), IDS('EPHW')],
-            ['READ_CALCUL', 154, (to_float, [10]), dict(TypeName="kWh", Used=1), IDS('EPS')],
+        work_modes_mapping = [(3, ids('Heating mode')),
+                              (4, ids('Hot water mode')),
+                              (2, ids('Swimming pool mode / Photovaltaik')),
+                              (2, ids('EVUM')),
+                              (1, ids('Defrost')),
+                              (0, ids('No requirement')),
+                              (4, ids('Heating external source mode')),
+                              (1, ids('Cooling'))]
 
+        hot_water_temps = '|'.join([str(a / 10) for a in self.available_writes[105].get_val()])
+        heating_temps = '|'.join([str(a / 10) for a in self.available_writes[1].get_val()])
 
+        self.devices_parameters_list = [
+            # 0 Data group/socket command,
+            # 1 idx in returned data,
+            # 2 tuple(data modification callback, list of additional read data (conversion, indexes, relates)),
+            # 3 Domoticz devices dictionary options,
+            # 4 Name of the domoticz device,
+            # 5 tuple(write callback, list of additional write needed data (conversion, indexes))
+            ['READ_CALCUL', 10, (to_float, 10),
+             dict(TypeName='Temperature', Used=1), ids('Heating supply temperature')],
 
-            # Writables
-            ['READ_PARAMS', 3, (to_selector_switch, [1/10]), dict(TypeName="Selector Switch", Image=7, Used=1,
-                                 Options={"LevelActions": "|||||",
-                                          "LevelNames": IDS('HWM_OPTIONS'),
-                                          "LevelOffHidden": "false",
-                                          "SelectorStyle": "1"}), IDS('HM'), 'WRIT_PARAMS'],
-            ['READ_PARAMS', 4, (to_selector_switch, [1/10]), dict(TypeName="Selector Switch", Image=7, Used=1,
-                                 Options={"LevelActions": "|||||",
-                                          "LevelNames": IDS('HWM_OPTIONS'),
-                                          "LevelOffHidden": "false",
-                                          "SelectorStyle": "1"}), IDS('HWM'), 'WRIT_PARAMS'],
-            ['READ_PARAMS', 108, (to_switch, []), dict(TypeName="Switch", Image=9, Used=1), IDS('CM'), 'WRIT_PARAMS'],
+            ['READ_CALCUL', 11, (to_float, 10),
+             dict(TypeName='Temperature', Used=1), ids('Heating return temperature')],
 
-            ['READ_CALCUL', 80, (mode_to_alert, []), dict(TypeName="Alert", Image=15, Used=1), IDS('WM')],
+            ['READ_CALCUL', 12, (to_float, 10),
+             dict(TypeName='Temperature', Used=1), ids('Heating return temperature - target')],
+
+            ['READ_CALCUL', 15, (to_float, 10),
+             dict(TypeName='Temperature', Used=1), ids('Outside temperature')],
+
+            ['READ_CALCUL', 16, (to_float, 10),
+             dict(TypeName='Temperature', Used=1), ids('Outside temperature - average')],
+
+            ['READ_CALCUL', 17, (to_float, 10),
+             dict(TypeName='Temperature', Used=1), ids('Hot water temperature')],
+
+            ['READ_CALCUL', 19, (to_float, 10),
+             dict(TypeName='Temperature', Used=1), ids('Ground source temperature - in')],
+
+            ['READ_CALCUL', 20, (to_float, 10),
+             dict(TypeName='Temperature', Used=1), ids('Ground source temperature - out')],
+
+            ['READ_CALCUL', 21, (to_float, 10),
+             dict(TypeName='Temperature', Used=0), ids('OM 1 Temperature')],
+
+            ['READ_CALCUL', 22, (to_float, 10),
+             dict(TypeName='Temperature', Used=0), ids('OM 1 Temperature - target')],
+
+            ['READ_CALCUL', 151, (to_power_counter, [1/100, 257, 1, 80, [0]]),
+             dict(TypeName='kWh', Used=1), ids('Energy produced - heating')],
+
+            ['READ_CALCUL', 152, (to_power_counter, [1/100, 257, 1, 80, [1]]),
+             dict(TypeName='kWh', Used=1), ids('Energy produced - hot water')],
+
+            ['READ_CALCUL', 154, (to_power_counter, [1/100, 257, 1, 80, [0, 1]]),
+             dict(TypeName='kWh', Used=1), ids('Energy produced - sum')],
+
+            ['READ_PARAMS', 3, (selector_switch_level_mapping, self.available_writes[3].get_val()),
+             dict(TypeName='Selector Switch', Image=7, Used=1,
+                  Options={'LevelActions': '|||||',
+                           'LevelNames': ids('Automat.|2nd h. source|Party|Holidays|Off'),
+                           'LevelOffHidden': 'false',
+                           'SelectorStyle': '1'}),
+             ids('Heating mode'), (available_writes_level_with_divider, [10, 3])],
+
+            ['READ_PARAMS', 4, (selector_switch_level_mapping, self.available_writes[4].get_val()),
+             dict(TypeName='Selector Switch', Image=7, Used=1,
+                  Options={'LevelActions': '|||||',
+                           'LevelNames': ids('Automat.|2nd h. source|Party|Holidays|Off'),
+                           'LevelOffHidden': 'false',
+                           'SelectorStyle': '1'}),
+             ids('Hot water mode'), (available_writes_level_with_divider, [10, 4])],
+
+            ['READ_PARAMS', 108, [to_number],
+             dict(TypeName='Switch', Image=9, Used=0), ids('Cooling'), [command_to_number]],
+
+            # TODO: To be changed into thermostat: ['READ_PARAMS', 1, (to_float, [10]),
+            #  dict(Type=242, Subtype=1, Used=1), IDS('Temperature +-'), 'WRIT_PARAMS'],
+            ['READ_PARAMS', 1, (selector_switch_level_mapping, self.available_writes[1].get_val()),
+             dict(TypeName='Selector Switch', Used=1,
+                  Options={'LevelActions': heating_temps.count('|'),
+                           'LevelNames': heating_temps,
+                           'LevelOffHidden': 'true',
+                           'SelectorStyle': '1'}),
+             ids('Temperature +-'), (available_writes_level_with_divider, [10, 1])],
+
+            # TODO: To be changed into thermostat: ['READ_PARAMS', 105, (to_float, [10]),
+            #  dict(Type=242, Subtype=1, Used=1), IDS('Hot water temperature - target'), 'WRIT_PARAMS'],
+            ['READ_PARAMS', 105, (selector_switch_level_mapping, self.available_writes[105].get_val()),
+             dict(TypeName='Selector Switch', Used=1,
+                  Options={'LevelActions': hot_water_temps.count('|'),
+                           'LevelNames': hot_water_temps,
+                           'LevelOffHidden': 'true',
+                           'SelectorStyle': '1'}),
+             ids('Hot water temperature - target'), (available_writes_level_with_divider, [10, 105])],
+
+            ['READ_CALCUL', 80, (to_alert, work_modes_mapping),
+             dict(TypeName='Alert', Image=15, Used=1), ids('Working mode')],
+
+            ['READ_CALCUL', 173, (to_float, 1),
+             dict(TypeName='Custom', Used=1, Options={'Custom': '1;l/h'}), ids('Flow')],
+
+            ['READ_CALCUL', 231, (to_float, 1),
+             dict(TypeName='Custom', Used=0, Options={'Custom': '1;Hz'}), ids('Compressor frequency')],
+
+            # ['READ_CALCUL', 56, 'time', dict(), IDS('Operating time')],
+            # ['READ_CALCUL', 57, 1, dict(TypeName='Temperature', Used=1), IDS('Cycles')],
+            # ['READ_CALCUL', 22, 10, dict(TypeName='Temperature', Used=1), IDS('')],
+            # ['READ_CALCUL', 22, 10, dict(TypeName='Temperature', Used=1), IDS('')],
         ]
 
         class Unit:
-            def __init__(self, id, message, address, div_fact, dev_params, name, writ_message=None):
-                self.id = id
+            def __init__(self, domoticz_id, message, address, read_conversion, dev_params, name, write_conversion=None):
+                self.id = domoticz_id
                 self.message = message
                 self.address = address
-                self.data_callback = div_fact[0]
-                self.div_fact = div_fact[1]
+                self.data_conversion_callback, *self._read_args = read_conversion
+
                 self.dev_params = dev_params
                 self.name = name
-                self.writ_message = writ_message
+                if write_conversion is not None:
+                    self.write_conversion_callback, *self._write_args = write_conversion
+                else:
+                    self.write_conversion_callback = write_conversion
 
-            def updateDomoticzDev(self, data_list):
-                update_device(unit=self.id, **self.data_callback(data_list[self.address], *self.div_fact))
+            def update_domoticz_dev(self, data_list):
+                update_device(Unit=self.id, **self.data_conversion_callback(data_list, self.address, *self._read_args))
 
-            def prepareDataToSend(self, data):
-                return (self.writ_message, self.address, data)
+            def prepare_data_to_send(self, **kwargs):
+                return ('WRIT_PARAMS', self.address,
+                        self.write_conversion_callback(*self._write_args, **kwargs))
 
-
-        for dev_idx in range(len(self.dev_list)):
-            tmp_unit = Unit(dev_idx+1, *self.dev_list[dev_idx])
+        for dev_idx in range(len(self.devices_parameters_list)):
+            tmp_unit = Unit(dev_idx + 1, *self.devices_parameters_list[dev_idx])
             tmp_unit.dev_params.update(dict(Name=tmp_unit.name, Unit=tmp_unit.id))
 
-            self.UNITS[tmp_unit.name] = tmp_unit
-            self.DEV_LISTS[tmp_unit.message][tmp_unit.id] = tmp_unit
-            if tmp_unit.writ_message:
-                self.DEV_LISTS[tmp_unit.writ_message][tmp_unit.id] = tmp_unit
+            self.units[tmp_unit.name] = tmp_unit
+            self.dev_lists[tmp_unit.message][tmp_unit.id] = tmp_unit
+            if tmp_unit.write_conversion_callback is not None:
+                self.dev_lists['WRIT_PARAMS'][tmp_unit.id] = tmp_unit
 
-    def CreateDevices(self):
-        for unit in self.UNITS.values():
+    def create_devices(self):
+        self.prepare_devices_list()
+        for unit in self.units.values():
             if unit.id not in Devices:
                 Domoticz.Device(**unit.dev_params).Create()
+            else:
+                # Do not change "Used" option which can be set by user.
+                update_params = unit.dev_params
+                update_params.pop('Used', None)
+                update_device_options(**update_params)
 
-    def InitializeConnection(self):
+    def initialize_connection(self):
         self.active_connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.active_connection.connect((self.host, int(self.port)))
+        try:
+            self.active_connection.connect((self.host, int(self.port)))
+            return True
+        except OSError as msg:
+            self.active_connection.close()
+            Domoticz.Error(f"Connection failed, check ip. Error: str({msg})")
+            return False
 
-    def SendMessage(self, command, address, value):
-        self.InitializeConnection()
+    def send_message(self, command, address, value):
+        if self.initialize_connection() is False:
+            return
 
         self.active_connection.send(struct.pack('!i', command))
         self.active_connection.send(struct.pack('!i', address))
@@ -350,46 +452,39 @@ class BasePlugin:
         self.active_connection.close()
         return command, stat, length, data_list
 
-    def ProcessSocketMessage(self, command='READ_PARAMS', address=0, value=0):
-        AVAILABLE_WRITES = {
-            3: Field(IDS('HM'), [0, 1, 2, 3, 4]),
-            4: Field(IDS('HWM'), [0, 1, 2, 3, 4]),
-            108: Field(IDS('CM'), [0, 1])
-        }
-
+    def process_socket_message(self, command='READ_PARAMS', address=0, value=0):
         if command is 'WRIT_PARAMS':
-            if value not in AVAILABLE_WRITES[address].get_val():
-                Domoticz.Error(f"Incorrect value for {AVAILABLE_WRITES[address].get_name()} value: {value}"
-                               f"but avaialble writables are: {AVAILABLE_WRITES[address].get_val()} for {address} ")
+            if value not in self.available_writes[address].get_val():
+                Domoticz.Error(f"Incorrect value for {self.available_writes[address].get_name()} value: {value}"
+                               f"but avaialble writables are: {self.available_writes[address].get_val()} for {address}")
                 return
         else:
             address = 0
             value = 0
 
+        raw_data = command, 0, 0, 0
         try:
-            raw_data = self.SendMessage(SOCKET_COMMANDS[command], address, value)
-        except:
-            self.InitializeConnection()
-            raw_data = self.SendMessage(SOCKET_COMMANDS[command], address, value)
+            raw_data = self.send_message(SOCKET_COMMANDS[command], address, value)
+        except socket.error:
+            if self.initialize_connection():
+                raw_data = self.send_message(SOCKET_COMMANDS[command], address, value)
 
         return raw_data
 
-    def Update(self, message):
-        command, stat, data_length, data_list = self.ProcessSocketMessage(message)
+    def update(self, message):
+        command, stat, data_length, data_list = self.process_socket_message(message)
         if data_length > 0:
-            for device in self.DEV_LISTS[message].values():
-                device.updateDomoticzDev(data_list)
+            for device in self.dev_lists[message].values():
+                device.update_domoticz_dev(data_list)
 
-    def UpdateAll(self):
-        self.Update('READ_CALCUL')
-        self.Update('READ_PARAMS')
+    def update_all(self):
+        self.update('READ_CALCUL')
+        self.update('READ_PARAMS')
 
     def onStart(self):
         if Parameters["Mode6"] != "0":
             Domoticz.Debugging(int(Parameters["Mode6"]))
-            DumpConfigToLog()
-
-        self.PrepareDevicesList()
+            dump_config_to_log()
 
         self.name = Parameters['Name']
         self.host = Parameters['Address']
@@ -397,11 +492,12 @@ class BasePlugin:
 
         Domoticz.Heartbeat(int(Parameters['Mode2']))
 
-        self.InitializeConnection()
+        self.prepare_devices_list()
 
-        # Create devices for roomba
-        self.CreateDevices()
-        self.UpdateAll()
+        if self.initialize_connection() is False:
+            return
+
+        self.update_all()
 
     def onStop(self):
         Domoticz.Debug("onStop - Plugin is stopping.")
@@ -409,139 +505,166 @@ class BasePlugin:
         self.active_connection = None
 
     def onDisconnect(self, Connection):
-        Domoticz.Debug("onDisconnect called for connection to: " + Connection.Address + ":" + Connection.Port)
+        Domoticz.Debug(f"onDisconnect called for connection to: {Connection.Address}:{Connection.Port}")
 
     def onConnect(self, Connection, status, Description):
-        Domoticz.Debug("onConnect called for connection to: " + Connection.Address + ":" + Connection.Port)
+        Domoticz.Debug(f"onConnect called for connection to: {Connection.Address}:{Connection.Port}")
 
     def onMessage(self, Connection, Data):
-        Domoticz.Debug("onMessage called for connection to: " + Connection.Address + ":" + Connection.Port)
+        Domoticz.Debug(f"onMessage called for connection to: {Connection.Address}:{Connection.Port}")
 
     def onCommand(self, Unit, Command, Level, Hue):
-        Domoticz.Debug("onCommand called for Unit " + str(Unit) + ": Parameter '" + str(Command) + "', Level: " + str(Level))
+        Domoticz.Debug(f"onCommand called for Unit:{str(Unit)} Command:{str(Command)} Level: {str(Level)}")
 
-        data = Level
-        if Unit == self.UNITS[IDS('CM')].id:
-            data = 1 if Command == 'On' else 0
-        elif Unit == self.UNITS[IDS('HM')].id:
-            data = int(Level / 10)
-        elif Unit == self.UNITS[IDS('HWM')].id:
-            data = int(Level / 10)
+        argument_list = locals()
+        argument_list.pop('self', None)
 
-        self.ProcessSocketMessage(*self.DEV_LISTS['WRIT_PARAMS'][Unit].prepareDataToSend(data))
-        self.Update('READ_PARAMS')
+        self.process_socket_message(
+            *self.dev_lists['WRIT_PARAMS'][Unit].prepare_data_to_send(
+                available_writes=self.available_writes,
+                **argument_list))
+        self.update('READ_PARAMS')
 
     def onHeartbeat(self):
         Domoticz.Debug("onHeartbeat called.")
-        self.UpdateAll()
+        self.update_all()
 
 
 global _plugin
 _plugin = BasePlugin()
 
+
 def onStart():
     global _plugin
     _plugin.onStart()
+
 
 def onStop():
     global _plugin
     _plugin.onStop()
 
+
 def onConnect(Connection, Status, Description):
     global _plugin
     _plugin.onConnect(Connection, Status, Description)
+
 
 def onMessage(Connection, Data):
     global _plugin
     _plugin.onMessage(Connection, Data)
 
+
 def onCommand(Unit, Command, Level, Hue):
     global _plugin
     _plugin.onCommand(Unit, Command, Level, Hue)
+
 
 def onNotification(Name, Subject, Text, Status, Priority, Sound, ImageFile):
     global _plugin
     _plugin.onNotification(Name, Subject, Text, Status, Priority, Sound, ImageFile)
 
+
 def onDisconnect(Connection):
     global _plugin
     _plugin.onDisconnect(Connection)
+
 
 def onHeartbeat():
     global _plugin
     _plugin.onHeartbeat()
 
 
-def update_device(unit,
-                  n_value=-1, s_value="", image_id=-1, sig_lvl=-1, bat_lvl=-1, opt={}, timed_out=-1, name="",
-                  type_name="", type=-1, sub_type=-1, switch_type=-1, used=-1, descr="", color="", supp_trigg=-1):
-    # Make sure that the Domoticz device still exists (they can be deleted) before updating it
-    Domoticz.Debug("update_device unit:" + str(unit))
-    if unit in Devices:
-        args = {}
-        # Must always be passed for update
-        if n_value != -1:
-            args["nValue"] = n_value
-        else:
-            args["nValue"] = Devices[unit].nValue
-        s_value = str(s_value)
-        if len(s_value) > 0:
-            args["sValue"] = s_value
-        else:
-            args["sValue"] = Devices[unit].sValue
+def update_device_options(Unit: int = None, Image: int = None, SignalLevel: int = None, BatteryLevel: int = None,
+                          Options: dict = None, TimedOut: int = None,Name: str = None, TypeName: str = None,
+                          Type: int = None, Subtype: int = None, Switchtype: int = None, Used: int = None,
+                          Description: str = None, Color: str = None, SuppressTriggers: int = None, **_):
+    args = {}
+    # Optionals
+    if TypeName:
+        pass
+        Devices[Unit].Update(TypeName=TypeName)
 
-        Domoticz.Debug(str(args))
-        # Optionals
-        if image_id != -1:
-            args["Image"] = image_id
-        if sig_lvl != -1:
-            args["SignalLevel"] = sig_lvl
-        if bat_lvl != -1:
-            args["BatteryLevel"] = bat_lvl
-        opt = str(opt)
-        if len(opt) > 0:
-            args["Options"] = opt
-        if timed_out != -1:
-            args["TimedOut"] = timed_out
-        name = str(name)
-        if len(name) > 0:
-            args["Name"] = name
-        type_name = str(type_name)
-        if len(type_name) > 0:
-            args["TypeName"] = type_name
-        if type != -1:
-            args["Type"] = type
-        if sub_type != -1:
-            args["Subtype"] = sub_type
-        if switch_type != -1:
-            args["Switchtype"] = switch_type
-        if used != -1:
-            args["Used"] = used
-        descr = str(descr)
-        if len(descr) > 0:
-            args["Description"] = descr
-        color = str(color)
-        if len(color) > 0:
-            args["Color"] = color
-        if supp_trigg != -1:
-            args["SuppressTriggers"] = supp_trigg
-        Domoticz.Debug("Update with " + str(args))
-        Devices[unit].Update(**args)
-    else:
+    if Image is not None and Image != Devices[Unit].Image:
+        args["Image"] = Image
+    if SignalLevel is not None and SignalLevel != Devices[Unit].SignalLevel:
+        args["SignalLevel"] = SignalLevel
+    if BatteryLevel is not None and BatteryLevel != Devices[Unit].BatteryLevel:
+        args["BatteryLevel"] = BatteryLevel
+    if Options is not None and Options != Devices[Unit].Options:
+        args["Options"] = Options
+    if TimedOut is not None and TimedOut != Devices[Unit].TimedOut:
+        args["TimedOut"] = TimedOut
+    if Name is not None and Name != Devices[Unit].Name:
+        args["Name"] = Name
+    if Type is not None and Type != Devices[Unit].Type:
+        args["Type"] = Type
+    if Subtype is not None and Subtype != Devices[Unit].Subtype:
+        args["Subtype"] = Subtype
+    if Switchtype is not None and Switchtype != Devices[Unit].Switchtype:
+        args["Switchtype"] = Switchtype
+    if Used is not None and Used != Devices[Unit].Used:
+        args["Used"] = Used
+    if Description is not None and Description != Devices[Unit].Description:
+        args["Description"] = Description
+    if Color is not None and Color != Devices[Unit].Color:
+        args["Color"] = Color
+    if SuppressTriggers is not None and SuppressTriggers != Devices[Unit].SuppressTriggers:
+        args["SuppressTriggers"] = SuppressTriggers
+
+    if len(args) > 0:
+        Domoticz.Debug(f"update_device_options unit: {str(Unit)} "
+                       f"Name: {Devices[Unit].Name} with parameters: {str(args)}")
+        Devices[Unit].Update(**args)
+
+
+def update_device(Unit: int = None, nValue: int = None, sValue: str = None, Image: int = None, SignalLevel: int = None,
+                  BatteryLevel: int = None, Options: dict = None, TimedOut: int = None, Name: str = None,
+                  TypeName: str = None, Type: int = None, Subtype: int = None, Switchtype: int = None,
+                  Used: int = None, Description: str = None, Color: str = None, SuppressTriggers: int = None):
+
+    # Make sure that the Domoticz device still exists (they can be deleted) before updating it
+    if Unit not in Devices:
         global _plugin
-        _plugin.CreateDevices()
+        _plugin.create_devices()
+
+    args = {}
+    update_needed = False
+
+    # Must always be passed for update
+    args["nValue"] = 0
+    if nValue is not None:
+        args["nValue"] = nValue
+        update_needed = True
+    elif Devices[Unit].nValue is not None:
+        args["nValue"] = Devices[Unit].nValue
+
+    if sValue is not None:
+        args["sValue"] = sValue
+        update_needed = True
+    else:
+        args["sValue"] = Devices[Unit].sValue
+
+    update_device_options(**locals())
+
+    if len(args) > 2:
+        update_needed = True
+
+    if update_needed:
+        Domoticz.Debug(f"update_device unit: {str(Unit)} Name: {Devices[Unit].Name} with parameters: {str(args)}")
+        Devices[Unit].Update(**args)
+
 
 # Generic helper functions
-def DumpConfigToLog():
+def dump_config_to_log():
     for x in Parameters:
         if Parameters[x] != "":
-            Domoticz.Debug( "'" + x + "':'" + str(Parameters[x]) + "'")
-    Domoticz.Debug("Device count: " + str(len(Devices)))
+            Domoticz.Debug(f"'{x}':'{str(Parameters[x])}'")
+    Domoticz.Debug(f"Device count: {str(len(Devices))}")
     for x in Devices:
-        Domoticz.Debug("Device:           " + str(x) + " - " + str(Devices[x]))
-        Domoticz.Debug("Device ID:       '" + str(Devices[x].ID) + "'")
-        Domoticz.Debug("Device Name:     '" + Devices[x].Name + "'")
-        Domoticz.Debug("Device nValue:    " + str(Devices[x].nValue))
-        Domoticz.Debug("Device sValue:   '" + Devices[x].sValue + "'")
-        Domoticz.Debug("Device LastLevel: " + str(Devices[x].LastLevel))
+        Domoticz.Debug(f"Device:           {str(x)} - {str(Devices[x])} ")
+        Domoticz.Debug(f"Device ID:       '{str(Devices[x].ID)}'        ")
+        Domoticz.Debug(f"Device Name:     '{Devices[x].Name}'           ")
+        Domoticz.Debug(f"Device nValue:    {str(Devices[x].nValue)}     ")
+        Domoticz.Debug(f"Device sValue:   '{Devices[x].sValue}'         ")
+        Domoticz.Debug(f"Device LastLevel: {str(Devices[x].LastLevel)}  ")
     return
