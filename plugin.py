@@ -1,7 +1,7 @@
 # Luxtronic2 plugin based on sockets
 # Author: ajarzyna, 2021
 """
-<plugin key="LUXT2" name="Luxtronic2 based on sockets." author="ajarzyn" version="0.0.2">
+<plugin key="LUXT2" name="Luxtronic2 based on sockets." author="ajarzyn" version="0.0.3">
     <description>
         <h2>Luxtronic2 based on sockets.</h2><br/>
         Be aware:
@@ -158,6 +158,14 @@ _IDS = {
         'Temperatura +-',
         '[DE]Temperature +-. '
     ],
+    'Actual room temperature': [
+        'Temperatura pokojowa',
+        'Raumtemperatur Ist. '
+    ],
+    'Room temperature set': [
+        'Temperatura pokojowa - cel',
+        'Raumtemperatur Soll'
+    ]
 }
 
 
@@ -361,6 +369,12 @@ class BasePlugin:
             ['READ_CALCUL', 231, (to_float, 1),
              dict(TypeName='Custom', Used=0, Options={'Custom': '1;Hz'}), ids('Compressor frequency')],
 
+            ['READ_CALCUL', 227, (to_float, 10),
+             dict(TypeName='Temperature', Used=0), ids('Actual room temperature')],
+
+            ['READ_CALCUL', 228, (to_float, 10),
+             dict(TypeName='Temperature', Used=0), ids('Room temperature set')],
+
             # ['READ_CALCUL', 56, 'time', dict(), IDS('Operating time')],
             # ['READ_CALCUL', 57, 1, dict(TypeName='Temperature', Used=1), IDS('Cycles')],
             # ['READ_CALCUL', 22, 10, dict(TypeName='Temperature', Used=1), IDS('')],
@@ -402,11 +416,12 @@ class BasePlugin:
         for unit in self.units.values():
             if unit.id not in Devices:
                 Domoticz.Device(**unit.dev_params).Create()
+
             else:
                 # Do not change "Used" option which can be set by user.
                 update_params = unit.dev_params
                 update_params.pop('Used', None)
-                update_device_options(**update_params)
+                update_device(**update_params)
 
     def initialize_connection(self):
         self.active_connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -492,7 +507,7 @@ class BasePlugin:
 
         Domoticz.Heartbeat(int(Parameters['Mode2']))
 
-        self.prepare_devices_list()
+        self.create_devices()
 
         if self.initialize_connection() is False:
             return
@@ -574,12 +589,33 @@ def onHeartbeat():
     _plugin.onHeartbeat()
 
 
-def update_device_options(Unit: int = None, Image: int = None, SignalLevel: int = None, BatteryLevel: int = None,
-                          Options: dict = None, TimedOut: int = None,Name: str = None, TypeName: str = None,
-                          Type: int = None, Subtype: int = None, Switchtype: int = None, Used: int = None,
-                          Description: str = None, Color: str = None, SuppressTriggers: int = None, **_):
+def update_device(Unit: int = None, nValue: int = None, sValue: str = None, Image: int = None, SignalLevel: int = None,
+                  BatteryLevel: int = None, Options: dict = None, TimedOut: int = None, Name: str = None,
+                  TypeName: str = None, Type: int = None, Subtype: int = None, Switchtype: int = None,
+                  Used: int = None, Description: str = None, Color: str = None, SuppressTriggers: int = None):
+
+    # Make sure that the Domoticz device still exists (they can be deleted) before updating it
+    if Unit not in Devices:
+        global _plugin
+        _plugin.create_devices()
+
     args = {}
-    # Optionals
+    update_needed = False
+
+    # Must always be passed for update
+    args["nValue"] = 0
+    if nValue is not None:
+        args["nValue"] = nValue
+        update_needed = True
+    elif Devices[Unit].nValue is not None:
+        args["nValue"] = Devices[Unit].nValue
+
+    if sValue is not None:
+        args["sValue"] = sValue
+        update_needed = True
+    else:
+        args["sValue"] = Devices[Unit].sValue
+
     if TypeName:
         pass
         Devices[Unit].Update(TypeName=TypeName)
@@ -610,41 +646,6 @@ def update_device_options(Unit: int = None, Image: int = None, SignalLevel: int 
         args["Color"] = Color
     if SuppressTriggers is not None and SuppressTriggers != Devices[Unit].SuppressTriggers:
         args["SuppressTriggers"] = SuppressTriggers
-
-    if len(args) > 0:
-        Domoticz.Debug(f"update_device_options unit: {str(Unit)} "
-                       f"Name: {Devices[Unit].Name} with parameters: {str(args)}")
-        Devices[Unit].Update(**args)
-
-
-def update_device(Unit: int = None, nValue: int = None, sValue: str = None, Image: int = None, SignalLevel: int = None,
-                  BatteryLevel: int = None, Options: dict = None, TimedOut: int = None, Name: str = None,
-                  TypeName: str = None, Type: int = None, Subtype: int = None, Switchtype: int = None,
-                  Used: int = None, Description: str = None, Color: str = None, SuppressTriggers: int = None):
-
-    # Make sure that the Domoticz device still exists (they can be deleted) before updating it
-    if Unit not in Devices:
-        global _plugin
-        _plugin.create_devices()
-
-    args = {}
-    update_needed = False
-
-    # Must always be passed for update
-    args["nValue"] = 0
-    if nValue is not None:
-        args["nValue"] = nValue
-        update_needed = True
-    elif Devices[Unit].nValue is not None:
-        args["nValue"] = Devices[Unit].nValue
-
-    if sValue is not None:
-        args["sValue"] = sValue
-        update_needed = True
-    else:
-        args["sValue"] = Devices[Unit].sValue
-
-    update_device_options(**locals())
 
     if len(args) > 2:
         update_needed = True
