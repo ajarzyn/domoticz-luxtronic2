@@ -433,7 +433,7 @@ class BasePlugin:
             return True
         except OSError as msg:
             self.active_connection.close()
-            Domoticz.Error(f"Connection failed, check ip. Error: str({msg})")
+            Domoticz.Error(f"Connection failed, check ip. Error: {str(msg)}")
             return False
 
     def send_message(self, command, address, value):
@@ -480,12 +480,16 @@ class BasePlugin:
             address = 0
             value = 0
 
-        raw_data = command, 0, 0, 0
+
         try:
             raw_data = self.send_message(SOCKET_COMMANDS[command], address, value)
         except socket.error:
             if self.initialize_connection():
                 raw_data = self.send_message(SOCKET_COMMANDS[command], address, value)
+
+        if raw_data is None:
+            Domoticz.Error(f"Connection error.")
+            raw_data = command, 0, 0, 0
 
         return raw_data
 
