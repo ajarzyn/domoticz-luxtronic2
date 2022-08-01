@@ -39,6 +39,7 @@
 import Domoticz
 import socket
 import struct
+import re
 
 
 _IDS = {
@@ -167,6 +168,8 @@ _IDS = {
         'Raumtemperatur Soll'
     ]
 }
+
+_IDS_STR = str(_IDS)
 
 
 # Read callbacks
@@ -630,7 +633,7 @@ def update_device(Unit: int = None, nValue: int = None, sValue: str = None, Imag
         args["Options"] = Options
     if TimedOut is not None and TimedOut != Devices[Unit].TimedOut:
         args["TimedOut"] = TimedOut
-    if Name is not None and Name != Devices[Unit].Name:
+    if Name is not None and Name != Devices[Unit].Name and bool(re.search(f"'{Devices[Unit].Name}'", _IDS_STR)):
         args["Name"] = Name
     if Type is not None and Type != Devices[Unit].Type:
         args["Type"] = Type
