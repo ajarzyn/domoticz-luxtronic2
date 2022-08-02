@@ -1,7 +1,7 @@
 # Luxtronic2 plugin based on sockets
 # Author: ajarzyna, 2021
 """
-<plugin key="LUXT2" name="Luxtronic2 based on sockets." author="ajarzyn" version="0.0.3">
+<plugin key="LUXT2" name="Luxtronic2 based on sockets." author="ajarzyn" version="0.0.4">
     <description>
         <h2>Luxtronic2 based on sockets.</h2><br/>
         Be aware:
