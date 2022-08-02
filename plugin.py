@@ -1,7 +1,7 @@
 # Luxtronic2 plugin based on sockets
 # Author: ajarzyna, 2021
 """
-<plugin key="LUXT2" name="Luxtronic2 based on sockets." author="ajarzyn" version="0.0.4">
+<plugin key="LUXT2" name="Luxtronic2 based on sockets." author="ajarzyn" version="0.0.5">
     <description>
         <h2>Luxtronic2 based on sockets.</h2><br/>
         Be aware:
@@ -606,60 +606,59 @@ def update_device(Unit: int = None, nValue: int = None, sValue: str = None, Imag
         global _plugin
         _plugin.create_devices()
 
-    args = {}
+    largs = {}
     update_needed = False
 
     # Must always be passed for update
-    args["nValue"] = 0
+    largs["nValue"] = 0
     if nValue is not None:
-        args["nValue"] = nValue
+        largs["nValue"] = nValue
         update_needed = True
     elif Devices[Unit].nValue is not None:
-        args["nValue"] = Devices[Unit].nValue
+        largs["nValue"] = Devices[Unit].nValue
 
+    largs["sValue"] = ""
     if sValue is not None:
-        args["sValue"] = sValue
+        largs["sValue"] = str(sValue)
         update_needed = True
-    else:
-        args["sValue"] = Devices[Unit].sValue
-
-    if TypeName:
-        pass
-        Devices[Unit].Update(TypeName=TypeName)
-
+    elif Devices[Unit].sValue is not None:
+        largs["sValue"] = str(Devices[Unit].sValue)
+        
+    if TypeName and False and TypeName != Devices[Unit].TypeName:
+        largs["TypeName"] = TypeName
     if Image is not None and Image != Devices[Unit].Image:
-        args["Image"] = Image
+        largs["Image"] = Image
     if SignalLevel is not None and SignalLevel != Devices[Unit].SignalLevel:
-        args["SignalLevel"] = SignalLevel
+        largs["SignalLevel"] = SignalLevel
     if BatteryLevel is not None and BatteryLevel != Devices[Unit].BatteryLevel:
-        args["BatteryLevel"] = BatteryLevel
+        largs["BatteryLevel"] = BatteryLevel
     if Options is not None and Options != Devices[Unit].Options:
-        args["Options"] = Options
+        largs["Options"] = Options
     if TimedOut is not None and TimedOut != Devices[Unit].TimedOut:
-        args["TimedOut"] = TimedOut
-    if Name is not None and Name != Devices[Unit].Name and bool(re.search(f"'{Devices[Unit].Name}'", _IDS_STR)):
-        args["Name"] = Name
+        largs["TimedOut"] = TimedOut
+    if Name is not None and Name != Devices[Unit].Name and bool(re.search(Devices[Unit].Name.replace(f"{Parameters['Name']} - " if f"{Parameters['Name']} - " in Devices[Unit].Name else "", ""), _IDS_STR)):
+        largs["Name"] = f"{Parameters['Name']} - {Name}"
     if Type is not None and Type != Devices[Unit].Type:
-        args["Type"] = Type
+        largs["Type"] = Type
     if Subtype is not None and Subtype != Devices[Unit].Subtype:
-        args["Subtype"] = Subtype
+        largs["Subtype"] = Subtype
     if Switchtype is not None and Switchtype != Devices[Unit].Switchtype:
-        args["Switchtype"] = Switchtype
+        largs["Switchtype"] = Switchtype
     if Used is not None and Used != Devices[Unit].Used:
-        args["Used"] = Used
+        largs["Used"] = Used
     if Description is not None and Description != Devices[Unit].Description:
-        args["Description"] = Description
+        largs["Description"] = Description
     if Color is not None and Color != Devices[Unit].Color:
-        args["Color"] = Color
+        largs["Color"] = Color
     if SuppressTriggers is not None and SuppressTriggers != Devices[Unit].SuppressTriggers:
-        args["SuppressTriggers"] = SuppressTriggers
+        largs["SuppressTriggers"] = SuppressTriggers
 
-    if len(args) > 2:
+    if len(largs) > 2:
         update_needed = True
-
+        
     if update_needed:
-        Domoticz.Debug(f"update_device unit: {str(Unit)} Name: {Devices[Unit].Name} with parameters: {str(args)}")
-        Devices[Unit].Update(**args)
+        Domoticz.Debug(f"update_device unit: {str(Unit)} Name: {Devices[Unit].Name} with parameters: {str(largs)}")
+        Devices[Unit].Update(**largs)
 
 
 # Generic helper functions
