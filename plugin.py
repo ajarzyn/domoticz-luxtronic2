@@ -1,7 +1,7 @@
 # Luxtronic2 plugin based on sockets
 # Author: ajarzyna, 2021
 """
-<plugin key="LUXT2" name="Luxtronic2 based on sockets." author="ajarzyn" version="0.0.5">
+<plugin key="LUXT2" name="Luxtronic2 based on sockets." author="ajarzyn" version="0.0.6">
     <description>
         <h2>Luxtronic2 based on sockets.</h2><br/>
         Be aware:
@@ -214,6 +214,10 @@ def available_writes_level_with_divider(write_data_list: list, *_args,
     return available_writes[available_writes_idx].get_val()[int(Level / divider)]
 
 
+def level_with_divider(divider: float, *_args, Level, **_kwargs):
+    return int(Level / divider)
+
+
 def ids(text):
     return _IDS[text][int(Parameters["Mode3"])-1] if int(Parameters["Mode3"]) else text
 
@@ -343,25 +347,11 @@ class BasePlugin:
             ['READ_PARAMS', 108, [to_number],
              dict(TypeName='Switch', Image=9, Used=0), ids('Cooling'), [command_to_number]],
 
-            # TODO: To be changed into thermostat: ['READ_PARAMS', 1, (to_float, [10]),
-            #  dict(Type=242, Subtype=1, Used=1), IDS('Temperature +-'), 'WRIT_PARAMS'],
-            ['READ_PARAMS', 1, (selector_switch_level_mapping, self.available_writes[1].get_val()),
-             dict(TypeName='Selector Switch', Used=1,
-                  Options={'LevelActions': heating_temps.count('|'),
-                           'LevelNames': heating_temps,
-                           'LevelOffHidden': 'true',
-                           'SelectorStyle': '1'}),
-             ids('Temperature +-'), (available_writes_level_with_divider, [10, 1])],
+            ['READ_PARAMS', 1, (to_float, 10),
+             dict(Type=242, Subtype=1, Used=1), ids('Temperature +-'), (level_with_divider, 1/10)],
 
-            # TODO: To be changed into thermostat: ['READ_PARAMS', 105, (to_float, [10]),
-            #  dict(Type=242, Subtype=1, Used=1), IDS('Hot water temperature - target'), 'WRIT_PARAMS'],
-            ['READ_PARAMS', 105, (selector_switch_level_mapping, self.available_writes[105].get_val()),
-             dict(TypeName='Selector Switch', Used=1,
-                  Options={'LevelActions': hot_water_temps.count('|'),
-                           'LevelNames': hot_water_temps,
-                           'LevelOffHidden': 'true',
-                           'SelectorStyle': '1'}),
-             ids('Hot water temperature - target'), (available_writes_level_with_divider, [10, 105])],
+            ['READ_PARAMS', 105, (to_float, 10),
+            dict(Type=242, Subtype=1, Used=1), ids('Hot water temperature - target'), (level_with_divider, 1/10)],
 
             ['READ_CALCUL', 80, (to_alert, work_modes_mapping),
              dict(TypeName='Alert', Image=15, Used=1), ids('Working mode')],
@@ -473,7 +463,7 @@ class BasePlugin:
     def process_socket_message(self, command='READ_PARAMS', address=0, value=0):
         if command is 'WRIT_PARAMS':
             if value not in self.available_writes[address].get_val():
-                Domoticz.Error(f"Incorrect value for {self.available_writes[address].get_name()} value: {value}"
+                Domoticz.Error(f"Incorrect value for {self.available_writes[address].get_name()} value: {value} "
                                f"but avaialble writables are: {self.available_writes[address].get_val()} for {address}")
                 return
         else:
@@ -640,7 +630,7 @@ def update_device(Unit: int = None, nValue: int = None, sValue: str = None, Imag
         largs["Name"] = f"{Parameters['Name']} - {Name}"
     if Type is not None and Type != Devices[Unit].Type:
         largs["Type"] = Type
-    if Subtype is not None and Subtype != Devices[Unit].Subtype:
+    if Subtype is not None:
         largs["Subtype"] = Subtype
     if Switchtype is not None and Switchtype != Devices[Unit].Switchtype:
         largs["Switchtype"] = Switchtype
